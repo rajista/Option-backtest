@@ -1,0 +1,169 @@
+{
+  "identity": {
+    "persona": "E1: The Anti-AI Designer",
+    "philosophy": "Precision, Clarity, and Architectural Structure. Finance is not about decoration; it is about data visibility.",
+    "anti_patterns": [
+      "No generic 'SaaS Blue' gradients.",
+      "No rounded-xl cards (use sharp or rounded-sm for precision).",
+      "No low-contrast gray text on gray backgrounds.",
+      "No 'cute' illustrations. Use abstract geometry or data visualizations."
+    ]
+  },
+  "typography": {
+    "fonts": {
+      "headings": {
+        "family": "Manrope",
+        "url": "https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap",
+        "usage": "Use for all Page Titles, Card Headings, and Marketing Copy. Weight: 600 or 800."
+      },
+      "body": {
+        "family": "Inter",
+        "url": "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap",
+        "usage": "Use for standard UI text, labels, and inputs."
+      },
+      "data": {
+        "family": "JetBrains Mono",
+        "url": "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap",
+        "usage": "MANDATORY for all financial data, prices, P&L figures, and dates. Ensures tabular alignment."
+      }
+    },
+    "rules": [
+      "Headings must be tight: tracking-tight.",
+      "Data numbers must be tabular-nums.",
+      "Use font-data (JetBrains Mono) for any number that changes."
+    ]
+  },
+  "colors": {
+    "theme": "light",
+    "palette": {
+      "background": {
+        "default": "#F8F9FA",
+        "paper": "#FFFFFF",
+        "subtle": "#F3F4F6"
+      },
+      "primary": {
+        "main": "#0F172A",
+        "hover": "#334155",
+        "text": "#FFFFFF",
+        "description": "Deep Navy/Slate for Authority. Avoid generic bright blue."
+      },
+      "accent": {
+        "brand": "#2563EB",
+        "success": "#10B981",
+        "danger": "#EF4444",
+        "warning": "#F59E0B"
+      },
+      "text": {
+        "primary": "#111827",
+        "secondary": "#4B5563",
+        "muted": "#9CA3AF"
+      },
+      "border": {
+        "default": "#E2E8F0",
+        "focus": "#2563EB"
+      }
+    },
+    "gradients": {
+      "subtle_mesh": "radial-gradient(at 0% 0%, hsla(210,100%,96%,1) 0, transparent 50%), radial-gradient(at 100% 0%, hsla(150,100%,96%,1) 0, transparent 50%)"
+    }
+  },
+  "layout": {
+    "spacing_scale": "Tailwind standard, but doubled for sections (py-20, py-32).",
+    "container": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8",
+    "grid_system": {
+      "dashboard": "grid grid-cols-1 md:grid-cols-12 gap-6",
+      "bento_rules": [
+        "Hero metrics: col-span-full md:col-span-3",
+        "Main Chart: col-span-full md:col-span-9 row-span-2",
+        "Recent Trades: col-span-full md:col-span-4"
+      ]
+    },
+    "sidebar": {
+      "width": "w-64",
+      "style": "Fixed, Border-r border-border bg-white"
+    }
+  },
+  "components": {
+    "buttons": {
+      "style": "rounded-md font-medium transition-all active:scale-95",
+      "primary": "bg-primary text-white hover:bg-primary/90 shadow-sm",
+      "secondary": "bg-white text-primary border border-input hover:bg-accent hover:text-accent-foreground",
+      "ghost": "hover:bg-accent hover:text-accent-foreground"
+    },
+    "cards": {
+      "style": "bg-white border border-border rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200",
+      "header": "px-6 py-4 border-b border-border",
+      "content": "p-6"
+    },
+    "inputs": {
+      "style": "h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+    },
+    "tables": {
+      "style": "w-full caption-bottom text-sm font-data",
+      "header_row": "border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted",
+      "row": "border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted"
+    },
+    "charts": {
+      "library": "recharts",
+      "theme": {
+        "grid_color": "#E2E8F0",
+        "tooltip_bg": "#FFFFFF",
+        "tooltip_border": "#E2E8F0"
+      }
+    }
+  },
+  "assets": {
+    "images": {
+      "landing_hero": {
+        "url": "https://images.unsplash.com/photo-1694590000075-8ece6e2a2fc5?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "alt": "Abstract structured white geometry representing financial structure",
+        "usage": "Hero section background with low opacity overlay"
+      },
+      "abstract_bg": {
+        "url": "https://images.unsplash.com/photo-1770520212551-af2140a95a5d?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "alt": "Subtle geometric shapes",
+        "usage": "Section dividers or subtle background for feature cards"
+      }
+    },
+    "icons": {
+      "primary_set": "lucide-react",
+      "marketing_set": "@phosphor-icons/react (Duotone)"
+    }
+  },
+  "visual_enhancers": {
+    "textures": {
+      "noise": "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E\")"
+    },
+    "shadows": {
+      "sharp": "2px 2px 0px 0px rgba(0,0,0,0.1)",
+      "soft": "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)"
+    }
+  },
+  "instructions_to_main_agent": [
+    "Install 'recharts' for all charts.",
+    "Install 'lucide-react' for icons.",
+    "Install '@radix-ui/react-slot' and 'class-variance-authority' for shadcn utils if missing.",
+    "Use 'clsx' and 'tailwind-merge' for class handling.",
+    "Ensure all financial data is formatted with 'Intl.NumberFormat' for currency.",
+    "Dates must be handled with 'date-fns'.",
+    "Use 'sonner' for toast notifications.",
+    "For the Landing Page: Use the 'Manrope' font prominently. Create a 'Trust' section with a clean grid of features.",
+    "For the Dashboard: Maximize screen real estate. Use a dense grid. Do not use large paddings inside the dashboard widgets.",
+    "Authentication: Use a clean, centered card layout with a subtle noise texture background."
+  ],
+  "universal_guidelines": {
+    "general": [
+      "Avoid 'AI slop' aesthetics (generic gradients, rounded-xl everywhere).",
+      "Use depth through z-index and subtle borders.",
+      "NO transition: all. Animate specific properties.",
+      "NO text-align: center on app container.",
+      "Interactive elements must have hover/active states.",
+      "Use 'sonner' for toasts.",
+      "Export components as named exports.",
+      "Export pages as default exports."
+    ],
+    "testing": [
+      "All interactive elements MUST have data-testid attributes (kebab-case)."
+    ]
+  }
+}
