@@ -1,34 +1,138 @@
-.App-logo {
-    height: 40vmin;
-    pointer-events: none;
+/* App-specific styles - Note: These must come after Tailwind imports */
+
+/* Sidebar styles */
+.sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  height: 100vh;
+  width: 16rem;
+  background-color: white;
+  border-right: 1px solid #e2e8f0;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-    .App-logo {
-        animation: App-logo-spin infinite 20s linear;
-    }
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  color: #475569;
+  transition: all 150ms ease;
+  border-radius: 0.5rem;
+  margin: 0 0.5rem;
 }
 
-.App-header {
-    background-color: #0f0f10;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-size: calc(10px + 2vmin);
-    color: white;
+.sidebar-nav-item:hover {
+  background-color: #f8fafc;
+  color: #0f172a;
 }
 
-.App-link {
-    color: #61dafb;
+.sidebar-nav-item.active {
+  background-color: #f1f5f9;
+  color: #0f172a;
+  font-weight: 500;
 }
 
-@keyframes App-logo-spin {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(360deg);
-    }
+/* Main content area */
+.main-content {
+  margin-left: 16rem;
+  min-height: 100vh;
+  background-color: #f8fafc;
+}
+
+/* Chart container */
+.chart-container {
+  background-color: white;
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+  padding: 1rem;
+}
+
+/* Form sections */
+.form-section {
+  background-color: white;
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.form-section-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 1rem;
+  font-family: 'Manrope', sans-serif;
+}
+
+/* Badge styles */
+.badge-success {
+  background-color: #d1fae5;
+  color: #047857;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.badge-danger {
+  background-color: #fee2e2;
+  color: #b91c1c;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.badge-warning {
+  background-color: #fef3c7;
+  color: #b45309;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.badge-neutral {
+  background-color: #f1f5f9;
+  color: #334155;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* Auth page background */
+.auth-bg {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  min-height: 100vh;
+}
+
+/* Strategy card */
+.strategy-card {
+  background-color: white;
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+  padding: 1rem;
+  cursor: pointer;
+  transition: all 200ms ease;
+}
+
+.strategy-card:hover {
+  border-color: #94a3b8;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+}
+
+.strategy-card.selected {
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.1);
+}
+
+/* Trade row colors */
+.trade-profit {
+  background-color: rgba(16, 185, 129, 0.05);
+}
+
+.trade-loss {
+  background-color: rgba(239, 68, 68, 0.05);
 }
