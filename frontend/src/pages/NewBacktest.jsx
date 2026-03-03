@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { backtestAPI, marketAPI } from '../lib/api';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
+import { backtestAPI } from '../lib/api';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
+import { Checkbox } from '../components/ui/checkbox';
 import { Calendar } from '../components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
+import { Switch } from '../components/ui/switch';
 import {
   Select,
   SelectContent,
@@ -15,42 +17,242 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select';
-import { Slider } from '../components/ui/slider';
-import { Switch } from '../components/ui/switch';
 import { toast } from 'sonner';
-import { format, subDays, subMonths } from 'date-fns';
+import { format, subMonths } from 'date-fns';
 import {
   CalendarIcon,
   Play,
   Loader2,
-  TrendingUp,
-  TrendingDown,
-  Percent,
-  Layers,
-  Clock,
-  Target,
-  ShieldAlert,
+  Plus,
+  Trash2,
+  Copy,
+  Info,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
-const strategies = [
-  { id: 'simple_call', name: 'Long Call', category: 'Simple', description: 'Buy a call option - bullish view', icon: TrendingUp },
-  { id: 'simple_put', name: 'Long Put', category: 'Simple', description: 'Buy a put option - bearish view', icon: TrendingDown },
-  { id: 'short_call', name: 'Short Call', category: 'Simple', description: 'Sell a call option - neutral/bearish', icon: TrendingDown },
-  { id: 'short_put', name: 'Short Put', category: 'Simple', description: 'Sell a put option - neutral/bullish', icon: TrendingUp },
-  { id: 'straddle', name: 'Long Straddle', category: 'Volatility', description: 'Buy ATM call + put - expect big move', icon: Layers },
-  { id: 'short_straddle', name: 'Short Straddle', category: 'Volatility', description: 'Sell ATM call + put - expect low volatility', icon: Layers },
-  { id: 'strangle', name: 'Long Strangle', category: 'Volatility', description: 'Buy OTM call + put - cheaper big move bet', icon: Layers },
-  { id: 'short_strangle', name: 'Short Strangle', category: 'Volatility', description: 'Sell OTM call + put - collect premium', icon: Layers },
-  { id: 'bull_call_spread', name: 'Bull Call Spread', category: 'Directional', description: 'Limited risk bullish strategy', icon: TrendingUp },
-  { id: 'bear_put_spread', name: 'Bear Put Spread', category: 'Directional', description: 'Limited risk bearish strategy', icon: TrendingDown },
-  { id: 'iron_condor', name: 'Iron Condor', category: 'Neutral', description: 'Profit from range-bound market', icon: Target },
-];
+// Position leg component
+const PositionLeg = ({ leg, index, onUpdate, onRemove, onDuplicate }) => {
+  return (
+    <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-3" data-testid={`leg-${index}`}>
+      <div className="flex items-center gap-2 mb-3">
+        <Badge variant="outline" className="bg-cyan-500 text-white border-none">
+          L{index + 1}
+        </Badge>
+        <span className="text-sm text-slate-500">ATM Point</span>
+        <Select value={leg.atmPoint} onValueChange={(v) => onUpdate(index, 'atmPoint', v)}>
+          <SelectTrigger className="w-20 h-8" data-testid={`leg-${index}-atm-point`}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="point">Point</SelectItem>
+            <SelectItem value="percent">%</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      
+      <div className="flex items-center gap-3 flex-wrap">
+        {/* Lots */}
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-slate-600">Lots:</span>
+          <Input
+            type="number"
+            value={leg.lots}
+            onChange={(e) => onUpdate(index, 'lots', parseInt(e.target.value) || 1)}
+            className="w-16 h-9"
+            min={1}
+            data-testid={`leg-${index}-lots`}
+          />
+        </div>
 
-const indices = [
-  { symbol: 'NIFTY', name: 'Nifty 50', lotSize: 25 },
-  { symbol: 'BANKNIFTY', name: 'Bank Nifty', lotSize: 15 },
-];
+        {/* Buy/Sell Toggle */}
+        <div className="flex items-center rounded-md overflow-hidden border border-slate-200">
+          <button
+            type="button"
+            onClick={() => onUpdate(index, 'action', 'BUY')}
+            className={cn(
+              'px-4 py-2 text-sm font-medium transition-colors',
+              leg.action === 'BUY' ? 'bg-emerald-500 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
+            )}
+            data-testid={`leg-${index}-buy-btn`}
+          >
+            BUY
+          </button>
+          <button
+            type="button"
+            onClick={() => onUpdate(index, 'action', 'SELL')}
+            className={cn(
+              'px-4 py-2 text-sm font-medium transition-colors',
+              leg.action === 'SELL' ? 'bg-red-500 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
+            )}
+            data-testid={`leg-${index}-sell-btn`}
+          >
+            SELL
+          </button>
+        </div>
+
+        {/* Strike Selection */}
+        <Select value={leg.strikeType} onValueChange={(v) => onUpdate(index, 'strikeType', v)}>
+          <SelectTrigger className="w-24 h-9" data-testid={`leg-${index}-strike-type`}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ATM">ATM</SelectItem>
+            <SelectItem value="ITM1">ITM 1</SelectItem>
+            <SelectItem value="ITM2">ITM 2</SelectItem>
+            <SelectItem value="ITM3">ITM 3</SelectItem>
+            <SelectItem value="OTM1">OTM 1</SelectItem>
+            <SelectItem value="OTM2">OTM 2</SelectItem>
+            <SelectItem value="OTM3">OTM 3</SelectItem>
+            <SelectItem value="custom">Custom</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Custom Strike Input */}
+        {leg.strikeType === 'custom' && (
+          <Input
+            type="number"
+            value={leg.customStrike}
+            onChange={(e) => onUpdate(index, 'customStrike', parseInt(e.target.value) || 0)}
+            className="w-24 h-9"
+            placeholder="Strike"
+            data-testid={`leg-${index}-custom-strike`}
+          />
+        )}
+
+        {/* Call/Put Toggle */}
+        <div className="flex items-center rounded-md overflow-hidden border border-slate-200">
+          <button
+            type="button"
+            onClick={() => onUpdate(index, 'optionType', 'CALL')}
+            className={cn(
+              'px-4 py-2 text-sm font-medium transition-colors',
+              leg.optionType === 'CALL' ? 'bg-cyan-500 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
+            )}
+            data-testid={`leg-${index}-call-btn`}
+          >
+            CALL
+          </button>
+          <button
+            type="button"
+            onClick={() => onUpdate(index, 'optionType', 'PUT')}
+            className={cn(
+              'px-4 py-2 text-sm font-medium transition-colors',
+              leg.optionType === 'PUT' ? 'bg-cyan-500 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
+            )}
+            data-testid={`leg-${index}-put-btn`}
+          >
+            PUT
+          </button>
+        </div>
+
+        {/* Target Profit */}
+        <button
+          type="button"
+          onClick={() => onUpdate(index, 'hasTargetProfit', !leg.hasTargetProfit)}
+          className={cn(
+            'flex items-center gap-1 px-3 py-2 text-sm rounded-md border transition-colors',
+            leg.hasTargetProfit ? 'border-emerald-500 text-emerald-600 bg-emerald-50' : 'border-slate-200 text-slate-500 hover:border-slate-300'
+          )}
+        >
+          <Plus className="w-3 h-3" />
+          Target Profit
+        </button>
+
+        {/* Stop Loss */}
+        <button
+          type="button"
+          onClick={() => onUpdate(index, 'hasStopLoss', !leg.hasStopLoss)}
+          className={cn(
+            'flex items-center gap-1 px-3 py-2 text-sm rounded-md border transition-colors',
+            leg.hasStopLoss ? 'border-red-500 text-red-600 bg-red-50' : 'border-slate-200 text-slate-500 hover:border-slate-300'
+          )}
+        >
+          <Plus className="w-3 h-3" />
+          Stop Loss
+        </button>
+
+        {/* Trail Stop Loss */}
+        <button
+          type="button"
+          onClick={() => onUpdate(index, 'hasTrailSL', !leg.hasTrailSL)}
+          className={cn(
+            'flex items-center gap-1 px-3 py-2 text-sm rounded-md border transition-colors',
+            leg.hasTrailSL ? 'border-amber-500 text-amber-600 bg-amber-50' : 'border-slate-200 text-slate-500 hover:border-slate-300'
+          )}
+        >
+          <Plus className="w-3 h-3" />
+          Trail Stop Loss
+        </button>
+
+        {/* Expiry */}
+        <Select value={leg.expiry} onValueChange={(v) => onUpdate(index, 'expiry', v)}>
+          <SelectTrigger className="w-28 h-9" data-testid={`leg-${index}-expiry`}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="weekly">Weekly</SelectItem>
+            <SelectItem value="monthly">Monthly</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Actions */}
+        <div className="flex items-center gap-1 ml-auto">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onDuplicate(index)}>
+            <Copy className="w-4 h-4 text-slate-400" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onRemove(index)}>
+            <Trash2 className="w-4 h-4 text-slate-400" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Conditional inputs for Target/SL */}
+      {(leg.hasTargetProfit || leg.hasStopLoss || leg.hasTrailSL) && (
+        <div className="flex items-center gap-4 mt-3 pt-3 border-t border-slate-200">
+          {leg.hasTargetProfit && (
+            <div className="flex items-center gap-2">
+              <Label className="text-sm text-emerald-600">Target:</Label>
+              <Input
+                type="number"
+                value={leg.targetProfit}
+                onChange={(e) => onUpdate(index, 'targetProfit', parseFloat(e.target.value) || 0)}
+                className="w-20 h-8"
+                placeholder="%"
+              />
+              <span className="text-xs text-slate-400">%</span>
+            </div>
+          )}
+          {leg.hasStopLoss && (
+            <div className="flex items-center gap-2">
+              <Label className="text-sm text-red-600">Stop Loss:</Label>
+              <Input
+                type="number"
+                value={leg.stopLoss}
+                onChange={(e) => onUpdate(index, 'stopLoss', parseFloat(e.target.value) || 0)}
+                className="w-20 h-8"
+                placeholder="%"
+              />
+              <span className="text-xs text-slate-400">%</span>
+            </div>
+          )}
+          {leg.hasTrailSL && (
+            <div className="flex items-center gap-2">
+              <Label className="text-sm text-amber-600">Trail SL:</Label>
+              <Input
+                type="number"
+                value={leg.trailSL}
+                onChange={(e) => onUpdate(index, 'trailSL', parseFloat(e.target.value) || 0)}
+                className="w-20 h-8"
+                placeholder="%"
+              />
+              <span className="text-xs text-slate-400">%</span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default function NewBacktest() {
   const navigate = useNavigate();
@@ -58,21 +260,119 @@ export default function NewBacktest() {
   
   // Form state
   const [name, setName] = useState('');
-  const [selectedStrategy, setSelectedStrategy] = useState('');
   const [selectedIndex, setSelectedIndex] = useState('NIFTY');
-  const [contractType, setContractType] = useState('weekly');
+  const [instrumentType, setInstrumentType] = useState('options'); // futures, options
+  const [tradeType, setTradeType] = useState('intraday'); // intraday, positional
   const [startDate, setStartDate] = useState(subMonths(new Date(), 1));
   const [endDate, setEndDate] = useState(new Date());
-  const [lots, setLots] = useState(1);
-  const [entryTime, setEntryTime] = useState('09:30');
-  const [exitTime, setExitTime] = useState('15:15');
-  const [useStopLoss, setUseStopLoss] = useState(false);
-  const [stopLossPercent, setStopLossPercent] = useState(20);
-  const [useTarget, setUseTarget] = useState(false);
-  const [targetPercent, setTargetPercent] = useState(50);
+  
+  // Entry/Exit time
+  const [entryHour, setEntryHour] = useState('9');
+  const [entryMinute, setEntryMinute] = useState('30');
+  const [exitHour, setExitHour] = useState('15');
+  const [exitMinute, setExitMinute] = useState('15');
+  
+  // ATM reference
+  const [atmReference, setAtmReference] = useState('spot'); // spot, futures
+  
+  // Strategy settings
+  const [rangeBreakout, setRangeBreakout] = useState(false);
+  const [strategyTargetProfit, setStrategyTargetProfit] = useState(false);
+  const [strategyTargetValue, setStrategyTargetValue] = useState(0);
+  const [strategyStopLoss, setStrategyStopLoss] = useState(false);
+  const [strategyStopValue, setStrategyStopValue] = useState(0);
+  const [noReEntry, setNoReEntry] = useState(false);
+  
+  // Position legs
+  const [legs, setLegs] = useState([
+    {
+      lots: 1,
+      action: 'SELL',
+      strikeType: 'ATM',
+      customStrike: 0,
+      optionType: 'CALL',
+      expiry: 'weekly',
+      atmPoint: 'point',
+      hasTargetProfit: false,
+      hasStopLoss: false,
+      hasTrailSL: false,
+      targetProfit: 50,
+      stopLoss: 20,
+      trailSL: 10,
+    }
+  ]);
 
-  const currentIndex = indices.find(i => i.symbol === selectedIndex);
-  const currentStrategy = strategies.find(s => s.id === selectedStrategy);
+  const addLeg = () => {
+    setLegs([...legs, {
+      lots: 1,
+      action: 'SELL',
+      strikeType: 'ATM',
+      customStrike: 0,
+      optionType: 'PUT',
+      expiry: 'weekly',
+      atmPoint: 'point',
+      hasTargetProfit: false,
+      hasStopLoss: false,
+      hasTrailSL: false,
+      targetProfit: 50,
+      stopLoss: 20,
+      trailSL: 10,
+    }]);
+  };
+
+  const updateLeg = (index, field, value) => {
+    const newLegs = [...legs];
+    newLegs[index][field] = value;
+    setLegs(newLegs);
+  };
+
+  const removeLeg = (index) => {
+    if (legs.length > 1) {
+      setLegs(legs.filter((_, i) => i !== index));
+    }
+  };
+
+  const duplicateLeg = (index) => {
+    setLegs([...legs, { ...legs[index] }]);
+  };
+
+  // Determine strategy type from legs
+  const getStrategyType = () => {
+    if (legs.length === 1) {
+      const leg = legs[0];
+      if (leg.action === 'BUY' && leg.optionType === 'CALL') return 'simple_call';
+      if (leg.action === 'BUY' && leg.optionType === 'PUT') return 'simple_put';
+      if (leg.action === 'SELL' && leg.optionType === 'CALL') return 'short_call';
+      if (leg.action === 'SELL' && leg.optionType === 'PUT') return 'short_put';
+    }
+    if (legs.length === 2) {
+      const l1 = legs[0], l2 = legs[1];
+      // Straddle: Same action, ATM, one call one put
+      if (l1.action === l2.action && l1.strikeType === 'ATM' && l2.strikeType === 'ATM') {
+        if ((l1.optionType === 'CALL' && l2.optionType === 'PUT') || (l1.optionType === 'PUT' && l2.optionType === 'CALL')) {
+          return l1.action === 'BUY' ? 'straddle' : 'short_straddle';
+        }
+      }
+      // Strangle: Same action, OTM strikes
+      if (l1.action === l2.action && l1.strikeType !== 'ATM' && l2.strikeType !== 'ATM') {
+        if ((l1.optionType === 'CALL' && l2.optionType === 'PUT') || (l1.optionType === 'PUT' && l2.optionType === 'CALL')) {
+          return l1.action === 'BUY' ? 'strangle' : 'short_strangle';
+        }
+      }
+      // Bull Call Spread: Buy lower strike call, sell higher strike call
+      if (l1.optionType === 'CALL' && l2.optionType === 'CALL' && l1.action !== l2.action) {
+        return 'bull_call_spread';
+      }
+      // Bear Put Spread
+      if (l1.optionType === 'PUT' && l2.optionType === 'PUT' && l1.action !== l2.action) {
+        return 'bear_put_spread';
+      }
+    }
+    if (legs.length === 4) {
+      return 'iron_condor';
+    }
+    return 'custom';
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -81,25 +381,24 @@ export default function NewBacktest() {
       toast.error('Please enter a backtest name');
       return;
     }
-    if (!selectedStrategy) {
-      toast.error('Please select a strategy');
-      return;
-    }
 
     setLoading(true);
 
     try {
+      const strategyType = getStrategyType();
       const config = {
-        strategy_type: selectedStrategy,
+        strategy_type: strategyType,
         index: selectedIndex,
-        contract_type: contractType,
+        contract_type: legs[0].expiry,
         start_date: format(startDate, 'yyyy-MM-dd'),
         end_date: format(endDate, 'yyyy-MM-dd'),
-        lots: lots,
-        entry_time: entryTime,
-        exit_time: exitTime,
-        stop_loss_percent: useStopLoss ? stopLossPercent : null,
-        target_percent: useTarget ? targetPercent : null,
+        lots: legs.reduce((sum, leg) => sum + leg.lots, 0),
+        entry_time: `${entryHour.padStart(2, '0')}:${entryMinute.padStart(2, '0')}`,
+        exit_time: `${exitHour.padStart(2, '0')}:${exitMinute.padStart(2, '0')}`,
+        stop_loss_percent: strategyStopLoss ? strategyStopValue : null,
+        target_percent: strategyTargetProfit ? strategyTargetValue : null,
+        trade_type: tradeType,
+        legs: legs,
       };
 
       const response = await backtestAPI.run({ name, config });
@@ -112,12 +411,13 @@ export default function NewBacktest() {
     }
   };
 
-  const categories = [...new Set(strategies.map(s => s.category))];
+  const hours = Array.from({ length: 8 }, (_, i) => (i + 9).toString());
+  const minutes = ['00', '15', '30', '45'];
 
   return (
     <div data-testid="new-backtest-page">
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'Manrope, sans-serif' }}>
           New Backtest
         </h1>
@@ -127,352 +427,479 @@ export default function NewBacktest() {
       </div>
 
       <form onSubmit={handleSubmit}>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Strategy Selection */}
-          <div className="lg:col-span-2 space-y-6">
+        {/* Top Configuration Bar */}
+        <Card className="mb-4">
+          <CardContent className="py-4">
+            <div className="flex items-center gap-4 flex-wrap">
+              {/* Index Selection */}
+              <Select value={selectedIndex} onValueChange={setSelectedIndex}>
+                <SelectTrigger className="w-36" data-testid="index-select">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="NIFTY">Nifty</SelectItem>
+                  <SelectItem value="BANKNIFTY">Banknifty</SelectItem>
+                  <SelectItem value="FINNIFTY">Finnifty</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Instrument Type */}
+              <div className="flex items-center rounded-md overflow-hidden border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setInstrumentType('futures')}
+                  className={cn(
+                    'px-4 py-2 text-sm font-medium transition-colors',
+                    instrumentType === 'futures' ? 'bg-slate-800 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
+                  )}
+                >
+                  Futures
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInstrumentType('options')}
+                  className={cn(
+                    'px-4 py-2 text-sm font-medium transition-colors',
+                    instrumentType === 'options' ? 'bg-slate-800 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
+                  )}
+                >
+                  Options
+                </button>
+              </div>
+
+              {/* Buy/Sell for futures or Call/Put for options */}
+              {instrumentType === 'options' && (
+                <div className="flex items-center rounded-md overflow-hidden border border-slate-200">
+                  <button type="button" className="px-4 py-2 text-sm font-medium bg-cyan-500 text-white">
+                    Call
+                  </button>
+                  <button type="button" className="px-4 py-2 text-sm font-medium bg-white text-slate-600">
+                    Put
+                  </button>
+                </div>
+              )}
+
+              {/* Action */}
+              <div className="flex items-center rounded-md overflow-hidden border border-slate-200">
+                <button type="button" className="px-4 py-2 text-sm font-medium bg-emerald-500 text-white">
+                  Buy
+                </button>
+                <button type="button" className="px-4 py-2 text-sm font-medium bg-white text-slate-600">
+                  Sell
+                </button>
+              </div>
+
+              {/* Strike Selection */}
+              <Select defaultValue="ATM">
+                <SelectTrigger className="w-24">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ATM">ATM</SelectItem>
+                  <SelectItem value="ITM1">ITM 1</SelectItem>
+                  <SelectItem value="OTM1">OTM 1</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Lots */}
+              <Input
+                type="number"
+                defaultValue={1}
+                className="w-16"
+                min={1}
+              />
+
+              {/* Expiry */}
+              <Select defaultValue="weekly">
+                <SelectTrigger className="w-28">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="weekly">Weekly</SelectItem>
+                  <SelectItem value="monthly">Monthly</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Main Content */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+          {/* Left Side - Backtest Config */}
+          <div className="lg:col-span-3 space-y-4">
             {/* Backtest Name */}
             <Card>
-              <CardHeader>
-                <CardTitle style={{ fontFamily: 'Manrope, sans-serif' }}>Backtest Details</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <Label htmlFor="name">Backtest Name</Label>
+              <CardContent className="py-4">
+                <div className="flex items-center gap-4">
+                  <Label className="whitespace-nowrap">Backtest Name:</Label>
                   <Input
-                    id="name"
-                    placeholder="e.g., NIFTY Weekly Straddle January"
+                    placeholder="e.g., NIFTY Weekly Straddle"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
+                    className="max-w-md"
                     data-testid="backtest-name-input"
                   />
                 </div>
               </CardContent>
             </Card>
 
-            {/* Strategy Selection */}
+            {/* Position Legs */}
             <Card>
-              <CardHeader>
-                <CardTitle style={{ fontFamily: 'Manrope, sans-serif' }}>Select Strategy</CardTitle>
-                <CardDescription>Choose an options strategy to backtest</CardDescription>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base" style={{ fontFamily: 'Manrope, sans-serif' }}>
+                  Position Legs
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                {categories.map((category) => (
-                  <div key={category} className="mb-6 last:mb-0">
-                    <h3 className="text-sm font-medium text-slate-500 mb-3">{category}</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {strategies
-                        .filter((s) => s.category === category)
-                        .map((strategy) => {
-                          const Icon = strategy.icon;
-                          return (
-                            <div
-                              key={strategy.id}
-                              onClick={() => setSelectedStrategy(strategy.id)}
-                              className={cn(
-                                'strategy-card',
-                                selectedStrategy === strategy.id && 'selected'
-                              )}
-                              data-testid={`strategy-${strategy.id}`}
-                            >
-                              <div className="flex items-start gap-3">
-                                <div className={cn(
-                                  'w-9 h-9 rounded-lg flex items-center justify-center',
-                                  selectedStrategy === strategy.id ? 'bg-primary text-white' : 'bg-slate-100'
-                                )}>
-                                  <Icon className="w-5 h-5" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="font-medium text-slate-900">{strategy.name}</p>
-                                  <p className="text-xs text-slate-500 mt-0.5">{strategy.description}</p>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                    </div>
-                  </div>
+                {legs.map((leg, index) => (
+                  <PositionLeg
+                    key={index}
+                    leg={leg}
+                    index={index}
+                    onUpdate={updateLeg}
+                    onRemove={removeLeg}
+                    onDuplicate={duplicateLeg}
+                  />
                 ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={addLeg}
+                  className="w-full mt-2"
+                  data-testid="add-position-btn"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Position
+                </Button>
               </CardContent>
             </Card>
 
-            {/* Parameters */}
+            {/* ATM Reference & Options */}
             <Card>
-              <CardHeader>
-                <CardTitle style={{ fontFamily: 'Manrope, sans-serif' }}>Parameters</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Index & Contract Type */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Index</Label>
-                    <Select value={selectedIndex} onValueChange={setSelectedIndex}>
-                      <SelectTrigger data-testid="index-select">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {indices.map((index) => (
-                          <SelectItem key={index.symbol} value={index.symbol}>
-                            {index.name} (Lot: {index.lotSize})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+              <CardContent className="py-4">
+                <div className="flex items-center gap-8 flex-wrap">
+                  {/* ATM Reference */}
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-slate-600">Use Spot as ATM</span>
+                    <Switch
+                      checked={atmReference === 'futures'}
+                      onCheckedChange={(v) => setAtmReference(v ? 'futures' : 'spot')}
+                    />
+                    <span className="text-sm text-slate-600">Use Futures as ATM</span>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Contract Type</Label>
-                    <Select value={contractType} onValueChange={setContractType}>
-                      <SelectTrigger data-testid="contract-type-select">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="weekly">Weekly</SelectItem>
-                        <SelectItem value="monthly">Monthly</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
 
-                {/* Date Range */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Start Date</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="w-full justify-start text-left font-normal"
-                          data-testid="start-date-btn"
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {format(startDate, 'dd MMM yyyy')}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={startDate}
-                          onSelect={(date) => date && setStartDate(date)}
-                          disabled={(date) => date > new Date()}
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>End Date</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="w-full justify-start text-left font-normal"
-                          data-testid="end-date-btn"
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {format(endDate, 'dd MMM yyyy')}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={endDate}
-                          onSelect={(date) => date && setEndDate(date)}
-                          disabled={(date) => date > new Date() || date < startDate}
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                </div>
-
-                {/* Lots */}
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Label>Number of Lots</Label>
-                    <span className="text-sm font-data text-slate-600">
-                      {lots} × {currentIndex?.lotSize || 25} = {lots * (currentIndex?.lotSize || 25)} qty
-                    </span>
-                  </div>
-                  <Slider
-                    value={[lots]}
-                    onValueChange={(v) => setLots(v[0])}
-                    min={1}
-                    max={20}
-                    step={1}
-                    data-testid="lots-slider"
-                  />
-                </div>
-
-                {/* Entry/Exit Time */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Entry Time</Label>
-                    <Select value={entryTime} onValueChange={setEntryTime}>
-                      <SelectTrigger data-testid="entry-time-select">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="09:15">09:15 (Market Open)</SelectItem>
-                        <SelectItem value="09:30">09:30</SelectItem>
-                        <SelectItem value="10:00">10:00</SelectItem>
-                        <SelectItem value="10:30">10:30</SelectItem>
-                        <SelectItem value="11:00">11:00</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Exit Time</Label>
-                    <Select value={exitTime} onValueChange={setExitTime}>
-                      <SelectTrigger data-testid="exit-time-select">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="14:30">14:30</SelectItem>
-                        <SelectItem value="15:00">15:00</SelectItem>
-                        <SelectItem value="15:15">15:15</SelectItem>
-                        <SelectItem value="15:25">15:25 (Near Close)</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  {/* Square Off Options */}
+                  <div className="flex items-center gap-4 ml-auto">
+                    <label className="flex items-center gap-2 text-sm">
+                      <input type="radio" name="squareOff" defaultChecked className="accent-cyan-500" />
+                      Square Off One Leg
+                      <Info className="w-4 h-4 text-slate-400" />
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input type="radio" name="squareOff" className="accent-cyan-500" />
+                      Square Off All Legs
+                      <Info className="w-4 h-4 text-slate-400" />
+                    </label>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Risk Management */}
+            {/* Timing Settings */}
             <Card>
-              <CardHeader>
-                <CardTitle style={{ fontFamily: 'Manrope, sans-serif' }}>Risk Management</CardTitle>
-                <CardDescription>Optional stop loss and target settings</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Stop Loss */}
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <ShieldAlert className="w-4 h-4 text-red-500" />
-                      <Label>Stop Loss</Label>
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1">Exit if loss exceeds percentage</p>
-                    {useStopLoss && (
-                      <div className="mt-3">
-                        <Slider
-                          value={[stopLossPercent]}
-                          onValueChange={(v) => setStopLossPercent(v[0])}
-                          min={5}
-                          max={50}
-                          step={5}
-                        />
-                        <p className="text-sm font-data text-red-500 mt-1">-{stopLossPercent}%</p>
+              <CardContent className="py-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Entry Time */}
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <Label className="text-sm">Entry Time:</Label>
+                      <div className="flex items-center gap-1">
+                        <Checkbox id="rangeBreakout" checked={rangeBreakout} onCheckedChange={setRangeBreakout} />
+                        <label htmlFor="rangeBreakout" className="text-sm text-slate-600 flex items-center gap-1">
+                          Range Breakout <Info className="w-3 h-3 text-slate-400" />
+                        </label>
                       </div>
-                    )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Select value={entryHour} onValueChange={setEntryHour}>
+                        <SelectTrigger className="w-20" data-testid="entry-hour">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {hours.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <span className="text-slate-400">:</span>
+                      <Select value={entryMinute} onValueChange={setEntryMinute}>
+                        <SelectTrigger className="w-20" data-testid="entry-minute">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {minutes.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <span className="text-slate-400">:</span>
+                      <Select defaultValue="00">
+                        <SelectTrigger className="w-20">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="00">00</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                  <Switch
-                    checked={useStopLoss}
-                    onCheckedChange={setUseStopLoss}
-                    data-testid="stop-loss-switch"
-                  />
-                </div>
 
-                {/* Target */}
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <Target className="w-4 h-4 text-emerald-500" />
-                      <Label>Target Profit</Label>
+                  {/* Exit Time */}
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <Label className="text-sm">Exit Time:</Label>
+                      {/* Trade Type */}
+                      <div className="flex items-center gap-3">
+                        <label className="flex items-center gap-1 text-sm">
+                          <input
+                            type="radio"
+                            name="tradeType"
+                            checked={tradeType === 'intraday'}
+                            onChange={() => setTradeType('intraday')}
+                            className="accent-cyan-500"
+                          />
+                          Same Day
+                        </label>
+                        <label className="flex items-center gap-1 text-sm">
+                          <input
+                            type="radio"
+                            name="tradeType"
+                            checked={tradeType === 'positional'}
+                            onChange={() => setTradeType('positional')}
+                            className="accent-cyan-500"
+                          />
+                          Next Day (BTST/STBT)
+                        </label>
+                      </div>
                     </div>
-                    <p className="text-xs text-slate-500 mt-1">Exit if profit exceeds percentage</p>
-                    {useTarget && (
-                      <div className="mt-3">
-                        <Slider
-                          value={[targetPercent]}
-                          onValueChange={(v) => setTargetPercent(v[0])}
-                          min={10}
-                          max={100}
-                          step={10}
+                    <div className="flex items-center gap-2">
+                      <Select value={exitHour} onValueChange={setExitHour}>
+                        <SelectTrigger className="w-20" data-testid="exit-hour">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {hours.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <span className="text-slate-400">:</span>
+                      <Select value={exitMinute} onValueChange={setExitMinute}>
+                        <SelectTrigger className="w-20" data-testid="exit-minute">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {minutes.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <span className="text-slate-400">:</span>
+                      <Select defaultValue="00">
+                        <SelectTrigger className="w-20">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="00">00</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Strategy Level SL/Target */}
+            <Card>
+              <CardContent className="py-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => setStrategyTargetProfit(!strategyTargetProfit)}
+                      className={cn(
+                        'flex items-center gap-2 text-sm mb-3',
+                        strategyTargetProfit ? 'text-emerald-600' : 'text-slate-500'
+                      )}
+                    >
+                      <Plus className="w-4 h-4" />
+                      Strategy Target Profit
+                    </button>
+                    {strategyTargetProfit && (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          value={strategyTargetValue}
+                          onChange={(e) => setStrategyTargetValue(parseFloat(e.target.value) || 0)}
+                          className="w-24"
+                          placeholder="Points"
                         />
-                        <p className="text-sm font-data text-emerald-500 mt-1">+{targetPercent}%</p>
+                        <span className="text-sm text-slate-500">points</span>
                       </div>
                     )}
                   </div>
-                  <Switch
-                    checked={useTarget}
-                    onCheckedChange={setUseTarget}
-                    data-testid="target-switch"
-                  />
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => setStrategyStopLoss(!strategyStopLoss)}
+                      className={cn(
+                        'flex items-center gap-2 text-sm mb-3',
+                        strategyStopLoss ? 'text-red-600' : 'text-slate-500'
+                      )}
+                    >
+                      <Plus className="w-4 h-4" />
+                      Strategy Stop Loss
+                    </button>
+                    {strategyStopLoss && (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          value={strategyStopValue}
+                          onChange={(e) => setStrategyStopValue(parseFloat(e.target.value) || 0)}
+                          className="w-24"
+                          placeholder="Points"
+                        />
+                        <span className="text-sm text-slate-500">points</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* No Re-Entry Option */}
+            <Card>
+              <CardContent className="py-4">
+                <div className="flex items-center justify-end gap-3">
+                  <Switch checked={noReEntry} onCheckedChange={setNoReEntry} />
+                  <span className="text-sm text-slate-600">No ReEntry/ReExecute/Journey After</span>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Right Column - Summary */}
-          <div className="space-y-6">
-            <Card className="sticky top-6">
-              <CardHeader>
-                <CardTitle style={{ fontFamily: 'Manrope, sans-serif' }}>Summary</CardTitle>
+          {/* Right Side - Summary & Run */}
+          <div className="space-y-4">
+            {/* Date Range */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm" style={{ fontFamily: 'Manrope, sans-serif' }}>Date Range</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">Strategy</span>
-                    <span className="font-medium">
-                      {currentStrategy?.name || 'Not selected'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">Index</span>
-                    <span className="font-medium">{selectedIndex}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">Contract</span>
-                    <Badge variant="secondary">{contractType}</Badge>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">Period</span>
-                    <span className="font-data text-xs">
-                      {format(startDate, 'dd MMM')} - {format(endDate, 'dd MMM yyyy')}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">Lots</span>
-                    <span className="font-data">{lots}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">Quantity</span>
-                    <span className="font-data">{lots * (currentIndex?.lotSize || 25)}</span>
-                  </div>
-                  {useStopLoss && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-500">Stop Loss</span>
-                      <span className="font-data text-red-500">-{stopLossPercent}%</span>
-                    </div>
-                  )}
-                  {useTarget && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-500">Target</span>
-                      <span className="font-data text-emerald-500">+{targetPercent}%</span>
-                    </div>
-                  )}
+              <CardContent className="space-y-3">
+                <div>
+                  <Label className="text-xs text-slate-500">Start Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal mt-1"
+                        data-testid="start-date-btn"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {format(startDate, 'dd MMM yyyy')}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={startDate}
+                        onSelect={(date) => date && setStartDate(date)}
+                        disabled={(date) => date > new Date()}
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
-
-                <div className="pt-4 border-t">
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={loading || !selectedStrategy}
-                    data-testid="run-backtest-btn"
-                  >
-                    {loading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Running...
-                      </>
-                    ) : (
-                      <>
-                        <Play className="w-4 h-4 mr-2" />
-                        Run Backtest
-                      </>
-                    )}
-                  </Button>
+                <div>
+                  <Label className="text-xs text-slate-500">End Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal mt-1"
+                        data-testid="end-date-btn"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {format(endDate, 'dd MMM yyyy')}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={endDate}
+                        onSelect={(date) => date && setEndDate(date)}
+                        disabled={(date) => date > new Date() || date < startDate}
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </CardContent>
             </Card>
+
+            {/* Summary */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm" style={{ fontFamily: 'Manrope, sans-serif' }}>Summary</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Index</span>
+                  <span className="font-medium">{selectedIndex}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Strategy</span>
+                  <Badge variant="secondary">{getStrategyType().replace(/_/g, ' ')}</Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Legs</span>
+                  <span className="font-data">{legs.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Total Lots</span>
+                  <span className="font-data">{legs.reduce((sum, leg) => sum + leg.lots, 0)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Trade Type</span>
+                  <Badge variant="outline">{tradeType}</Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Entry</span>
+                  <span className="font-data">{entryHour}:{entryMinute}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Exit</span>
+                  <span className="font-data">{exitHour}:{exitMinute}</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Run Button */}
+            <Button
+              type="submit"
+              className="w-full bg-cyan-500 hover:bg-cyan-600"
+              disabled={loading || !name.trim()}
+              data-testid="run-backtest-btn"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Running...
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4 mr-2" />
+                  Run Backtest
+                </>
+              )}
+            </Button>
+
+            {/* Info */}
+            <div className="text-xs text-slate-500 space-y-1">
+              <p><strong>Banknifty</strong> data available from Mon Jan 02 2017</p>
+              <p><strong>Nifty</strong> data available from Fri Feb 15 2019</p>
+              <p>Lot sizes are variable based on historical dates</p>
+            </div>
           </div>
         </div>
       </form>
